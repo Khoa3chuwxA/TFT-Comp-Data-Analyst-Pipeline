@@ -1,5 +1,3 @@
-#! "D:\My Project\TFT-Comp-Data-Analyst-Pipeline\venv\Scripts\python.exe"
-
 import os
 import yaml
 
