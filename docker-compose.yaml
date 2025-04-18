@@ -1,6 +1,7 @@
 services:
   postgres:
-    image: postgres:13
+    image: postgres:15
+    container_name: postgres
     environment:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
@@ -9,10 +10,13 @@ services:
       - postgres-db-volume:/var/lib/postgresql/data
 
   airflow-webserver:
-    build: .
+    build: ./airflow
+    image: airflow-webserver
+    container_name: airflow-webserver
     restart: always
     depends_on:
       - postgres
+      - tft-postgres
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
@@ -20,30 +24,34 @@ services:
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     volumes:
-      - ./dags:/opt/airflow/dags
-      - ./logs:/opt/airflow/logs
-      - ./plugins:/opt/airflow/plugins
-      - ../src:/opt/airflow/src
-      - ../data:/opt/airflow/data
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+      - ./src:/opt/airflow/src
+      - ./data:/opt/airflow/data
     ports:
       - "8080:8080"
     command: webserver
 
   airflow-scheduler:
-    build: .
+    build: ./airflow
+    image: airflow-scheduler
+    container_name: airflow-scheduler
     restart: always
     depends_on:
       - postgres
+      - tft-postgres
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
     volumes:
-      - ./dags:/opt/airflow/dags
-      - ./logs:/opt/airflow/logs
-      - ./plugins:/opt/airflow/plugins
-      - ../src:/opt/airflow/src
-      - ../data:/opt/airflow/data
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+      - ./src:/opt/airflow/src
+      - ./data:/opt/airflow/data
     command: scheduler
 
 volumes:
   postgres-db-volume:
+  pgdata:
