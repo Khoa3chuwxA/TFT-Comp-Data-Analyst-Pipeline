@@ -9,6 +9,19 @@ services:
     volumes:
       - postgres-db-volume:/var/lib/postgresql/data
 
+  tft-postgres:
+    build: ./data
+    image: tft-postgres
+    container_name: tft-postgres
+    ports:
+      - "5431:5432"
+    environment:
+      POSTGRES_DB: tft_data
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: pass
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
   airflow-webserver:
     build: ./airflow
     image: airflow-webserver
