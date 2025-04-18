@@ -10,20 +10,8 @@ import logging                                      # For logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-# Set formatter to use UTC+7 timezone
-class UTC7Formatter(logging.Formatter):
-    def converter(self, timestamp):
-        return datetime.fromtimestamp(timestamp, timezone(timedelta(hours=7)))
-
-    def formatTime(self, record, datefmt=None):
-        dt = self.converter(record.created)
-        if datefmt:
-            return dt.strftime(datefmt)
-        else:
-            return dt.isoformat()
-
-formatter = UTC7Formatter(
-    fmt='[%(asctime)s UTC+7] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s',
+formatter = logging.Formatter(
+    fmt='[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s',
     datefmt='%Y-%m-%d, %H:%M:%S'
 )
 
@@ -206,23 +194,23 @@ def fetch_matches(match_ids):
 def main():
     start_total = time.perf_counter()
 
-    print("[TEST] Fetching summoner PUUIDs...")
+    logger.info("[TEST] Fetching summoner PUUIDs...")
     start = time.perf_counter()
     puuids = fetch_summoner_puuids()
-    print(f"{len(puuids)} summoners fetched in {time.perf_counter() - start:.2f}s")
+    logger.info(f"{len(puuids)} summoners fetched in {time.perf_counter() - start:.2f}s")
 
-    print("[TEST] Fetching match IDs...")
+    logger.info("[TEST] Fetching match IDs...")
     start = time.perf_counter()
     match_ids = fetch_yesterday_match_ids(puuids)
-    print(f"{len(match_ids)} matches found in {time.perf_counter() - start:.2f}s")
+    logger.info(f"{len(match_ids)} matches found in {time.perf_counter() - start:.2f}s")
 
-    print("[TEST] Fetching matches data...")
+    logger.info("[TEST] Fetching matches data...")
     start = time.perf_counter()
     participants_df, matches_df = fetch_matches(match_ids)
-    print(f"Match data shape: participants={participants_df.shape}, matches={matches_df.shape} "
+    logger.info(f"Match data shape: participants={participants_df.shape}, matches={matches_df.shape} "
           f"in {time.perf_counter() - start:.2f}s")
 
-    print(f"Test run complete — no CSVs were written. Total time: {time.perf_counter() - start_total:.2f}s")
+    logger.info(f"Test run complete — no CSVs were written. Total time: {time.perf_counter() - start_total:.2f}s")
 
 if __name__ == "__main__":
     main()

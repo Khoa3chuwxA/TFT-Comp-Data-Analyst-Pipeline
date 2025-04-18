@@ -17,20 +17,8 @@ from src.utils.log_writer import write_log               # Importing the functio
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-# Set formatter to use UTC+7 timezone
-class UTC7Formatter(logging.Formatter):
-    def converter(self, timestamp):
-        return datetime.fromtimestamp(timestamp, timezone(timedelta(hours=7)))
-
-    def formatTime(self, record, datefmt=None):
-        dt = self.converter(record.created)
-        if datefmt:
-            return dt.strftime(datefmt)
-        else:
-            return dt.isoformat()
-
-formatter = UTC7Formatter(
-    fmt='[%(asctime)s UTC+7] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s',
+formatter = logging.Formatter(
+    fmt='[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s',
     datefmt='%Y-%m-%d, %H:%M:%S'
 )
 
