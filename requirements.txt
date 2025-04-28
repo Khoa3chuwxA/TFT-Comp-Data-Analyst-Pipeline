@@ -4,7 +4,8 @@ pandas==2.1.4
 numpy==1.26.3
 scikit-learn==1.6.0
 matplotlib==3.10.1
-seaborn==0.12.2
+seaborn==0.13.2
+mlxtend==0.21.0
 
 # Data & APIs
 pyyaml==6.0.2
