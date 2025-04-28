@@ -42,11 +42,11 @@ default_args = {
 }
 # --- DAG Definition ---
 @dag(
-    dag_id="clean_tft_dataset_dag",
-    schedule_interval="@weekly",
+    dag_id="Clean_TFT_Dataset_DAG",
+    schedule_interval = "0 0 * * 1,4", # Every Monday and Thursday at 00:00 UTC
     catchup=False,
     default_args=default_args,
-    tags=["tft", "data-pipeline"],
+    tags=["TFT", "Data-Pipeline"],
 )
 def clean_tft_dataset_pipeline():
     tz = timezone(timedelta(hours=7))
@@ -60,7 +60,7 @@ def clean_tft_dataset_pipeline():
         task_id = context["task"].task_id
 
         start_time = datetime.now(tz)
-        write_log(dag_id, task_id, ds, f"Started at {start_time.isoformat()}")
+        write_log(dag_id, task_id, ds, f"Started at {start_time.strftime('%Y-%m-%d, %H:%M:%S')}")
 
         engine = create_engine(DB_URL)
         try:
@@ -85,7 +85,7 @@ def clean_tft_dataset_pipeline():
         mins, secs = divmod(duration.total_seconds(), 60)
         duration_str = f"{int(mins):02d}:{int(secs):02d}"
         
-        write_log(dag_id, task_id, ds, f"Finished at {end_time.isoformat()} (Duration: {duration_str})")
+        write_log(dag_id, task_id, ds, f"Finished at {end_time.strftime('%Y-%m-%d, %H:%M:%S')} (Duration: {duration_str})")
         
         return run_dates
     # Task to load and clean data
@@ -98,7 +98,7 @@ def clean_tft_dataset_pipeline():
         task_id = context["task"].task_id
 
         start_time = datetime.now(tz)
-        write_log(dag_id, task_id, ds, f"Started at {start_time.isoformat()}")
+        write_log(dag_id, task_id, ds, f"Started at {start_time.strftime('%Y-%m-%d, %H:%M:%S')}")
         write_log(dag_id, task_id, ds, f"Run dates to process: {len(run_dates)} date(s)")
         
         engine = create_engine(DB_URL)
@@ -122,7 +122,7 @@ def clean_tft_dataset_pipeline():
         mins, secs = divmod(duration.total_seconds(), 60)
         duration_str = f"{int(mins):02d}:{int(secs):02d}"
         
-        write_log(dag_id, task_id, ds, f"Finished at {end_time.isoformat()} (Duration: {duration_str})")
+        write_log(dag_id, task_id, ds, f"Finished at {end_time.strftime('%Y-%m-%d, %H:%M:%S')} (Duration: {duration_str})")
                 
     # Task dependencies
     run_dates = task_load_run_dates()

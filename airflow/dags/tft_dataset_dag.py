@@ -11,6 +11,7 @@ from src.data.make_dataset import (
     fetch_yesterday_match_ids,
     fetch_matches,
 )                                                        # Importing functions to fetch data from the API
+from src.config.load_config import load_config           # For loading config
 from src.utils.log_writer import write_log               # Importing the function to write logs
 
 # --- Logging Setup ---
@@ -26,6 +27,11 @@ handler = logging.StreamHandler()
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
+# --- Load Config ---
+config = load_config()
+platform = config["riot"]["platform"]
+regional = config["riot"]["regional"]
+
 # --- DAG Configuration ---
 default_args = {
     "owner": "airflow",
@@ -35,11 +41,11 @@ default_args = {
 }
 # --- DAG Definition ---
 @dag(
-    dag_id="tft_dataset_dag",
+    dag_id="TFT_Dataset_DAG",
     schedule_interval="@daily",
     catchup=False,
     default_args=default_args,
-    tags=["tft", "data-pipeline"],
+    tags=["TFT", "Data-Pipeline"],
 )
 def tft_dataset_pipeline():
     tz = timezone(timedelta(hours=7))
@@ -53,10 +59,10 @@ def tft_dataset_pipeline():
         task_id = context["task"].task_id
         
         start_time = datetime.now(tz)
-        write_log(dag_id, task_id, ds, f"Started at {start_time.isoformat()}")
+        write_log(dag_id, task_id, ds, f"Started at {start_time.strftime('%Y-%m-%d, %H:%M:%S')}")
 
         # Fetch summoner PUUIDs
-        puuids = fetch_summoner_puuids()
+        puuids = fetch_summoner_puuids(platform_routing=platform)
         
         end_time = datetime.now(tz)
         duration = end_time - start_time
@@ -64,7 +70,7 @@ def tft_dataset_pipeline():
         duration_str = f"{int(mins):02d}:{int(secs):02d}"
         
         write_log(dag_id, task_id, ds, f"Fetched {len(puuids)} summoner PUUIDs")
-        write_log(dag_id, task_id, ds, f"Finished at {end_time.isoformat()} (Duration: {duration_str})")
+        write_log(dag_id, task_id, ds, f"Finished at {end_time.strftime('%Y-%m-%d, %H:%M:%S')} (Duration: {duration_str})")
         
         return puuids
     # Task to fetch match IDs for the given PUUIDs
@@ -77,10 +83,10 @@ def tft_dataset_pipeline():
         task_id = context["task"].task_id
         
         start_time = datetime.now(tz)
-        write_log(dag_id, task_id, ds, f"Started at {datetime.now(tz).isoformat()}")
+        write_log(dag_id, task_id, ds, f"Started at {start_time.strftime('%Y-%m-%d, %H:%M:%S')}")
         
         # Fetch match IDs for the given PUUIDs
-        match_ids = fetch_yesterday_match_ids(puuids)
+        match_ids = fetch_yesterday_match_ids(puuids, regional_routing=regional)
         
         end_time = datetime.now(tz)
         duration = end_time - start_time
@@ -88,7 +94,7 @@ def tft_dataset_pipeline():
         duration_str = f"{int(mins):02d}:{int(secs):02d}"
         
         write_log(dag_id, task_id, ds, f"Fetched {len(match_ids)} match IDs")
-        write_log(dag_id, task_id, ds, f"Finished at {end_time.isoformat()} (Duration: {duration_str})")
+        write_log(dag_id, task_id, ds, f"Finished at {end_time.strftime('%Y-%m-%d, %H:%M:%S')} (Duration: {duration_str})")
 
         return match_ids
     # Task to fetch and save match data
@@ -101,10 +107,10 @@ def tft_dataset_pipeline():
         task_id = context["task"].task_id
         
         start_time = datetime.now(tz)
-        write_log(dag_id, task_id, ds, f"Started at {datetime.now(tz).isoformat()}")
+        write_log(dag_id, task_id, ds, f"Started at {start_time.strftime('%Y-%m-%d, %H:%M:%S')}")
         
         # Fetch match data for the given match IDs
-        participants_df, matches_df = fetch_matches(match_ids)
+        participants_df, matches_df = fetch_matches(match_ids, regional_routing=regional)
 
         participants_df.sort_values(by=["match_id", "placement"], inplace=True)
         participants_df.reset_index(drop=True, inplace=True)
@@ -123,9 +129,9 @@ def tft_dataset_pipeline():
         mins, secs = divmod(duration.total_seconds(), 60)
         duration_str = f"{int(mins):02d}:{int(secs):02d}"
         
-        write_log(dag_id, task_id, ds, f"Saved {len(participants_df)} participants")
+        write_log(dag_id, task_id, ds, f"Saved {len(participants_df)} participants records")
         write_log(dag_id, task_id, ds, f"Saved {len(matches_df)} match records")
-        write_log(dag_id, task_id, ds, f"Finished at {end_time.isoformat()} (Duration: {duration_str})")
+        write_log(dag_id, task_id, ds, f"Finished at {end_time.strftime('%Y-%m-%d, %H:%M:%S')} (Duration: {duration_str})")
 
     # Task dependencies
     # The tasks are executed in the following order:

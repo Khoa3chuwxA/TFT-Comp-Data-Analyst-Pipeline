@@ -1,6 +1,6 @@
 import pandas as pd
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 import ast
 import os
 from sqlalchemy import create_engine, text
@@ -161,7 +161,6 @@ def main():
             result = conn.execute(query).fetchall()
             for column in result:
                 logger.info(f"{column}")
-                print(column)
             
             # Check if the loaded_dates table exists
             run_dates = ["2025-04-14", "2025-04-15", "2025-04-16"]

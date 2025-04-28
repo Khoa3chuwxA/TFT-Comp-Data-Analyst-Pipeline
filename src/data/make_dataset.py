@@ -22,8 +22,6 @@ logger.addHandler(handler)
 # --- Load Config ---
 config = load_config()
 api_key = config["riot"]["api_key"]
-platform_region = config["riot"]["platform_region"]
-regional_region = config["riot"]["regional_region"]
 
 # --- Initialize Riot API watcher ---
 tft_watcher = TftWatcher(api_key)
@@ -47,9 +45,9 @@ def safe_api_call(func, *args, retries=3, **kwargs):
     return None
         
 # --- Fetch players (challenger, grandmaster, master) ---
-def fetch_summoner_puuids():
+def fetch_summoner_puuids(platform_routing):
     logger.info("Fetching summoner PUUIDs...")
-    logger.info(f"Region: {platform_region}")
+    logger.info(f"Platform Routing: {platform_routing}")
     
     # Initialize
     entries = []
@@ -59,23 +57,26 @@ def fetch_summoner_puuids():
         tft_watcher.league.challenger,
         tft_watcher.league.grandmaster,
     ]:
-        league_data = safe_api_call(rank_func, region=platform_region)
+        league_data = safe_api_call(rank_func, region=platform_routing)
         if league_data:
             entries.extend(league_data["entries"])
             
     logger.info(f"Total players in Challenger and Grandmaster fetched: {len(entries)}")
     
-    league_data = safe_api_call(tft_watcher.league.master, region=platform_region)
-    if league_data:
-        space_left = max_entries - len(entries)
-        entries.extend(league_data["entries"][:space_left])
-    
-    logger.info(f"Total players fetched: {len(entries)}")
+    if len(entries) >= max_entries:
+        logger.info(f"Max entries reached: {max_entries}. Stopping fetch.")
+    else:
+        logger.info("Fetching players from the Master tier to complete the list of 1000 players...")
+        league_data = safe_api_call(tft_watcher.league.master, region=platform_routing)
+        if league_data:
+            space_left = max_entries - len(entries)
+            entries.extend(league_data["entries"][:space_left])
+        logger.info(f"Total players fetched: {len(entries)}")
     
     return [entry["puuid"] for entry in entries]
 
 # --- Fetch yesterday's match IDs ---
-def fetch_yesterday_match_ids(puuids):
+def fetch_yesterday_match_ids(puuids, regional_routing):
     # Get yesterday's date
     utc_now = datetime.now(timezone.utc)
     yesterday = utc_now - timedelta(days=1)
@@ -87,7 +88,7 @@ def fetch_yesterday_match_ids(puuids):
     end_time = int(end_dt.timestamp())
     
     logger.info("Fetching match IDs...")
-    logger.info(f"Region: {platform_region}")
+    logger.info(f"Regional Routing: {regional_routing}")
     logger.info(f"Total PUUIDs: {len(puuids)}")
     
     logger.info(f"Start: {start_dt} → Unix: {start_time}")
@@ -102,7 +103,7 @@ def fetch_yesterday_match_ids(puuids):
     for i, puuid in enumerate(puuids):
         match_ids = safe_api_call(
             tft_watcher.match.by_puuid,
-            region=regional_region,
+            region=regional_routing,
             puuid=puuid,
             count=50,
             start_time=start_time,
@@ -125,9 +126,9 @@ def fetch_yesterday_match_ids(puuids):
     return list(all_match_ids)
 
 # --- Fetch full match data ---
-def fetch_matches(match_ids):
+def fetch_matches(match_ids, regional_routing):
     logger.info("Fetching match data...")
-    logger.info(f"Region: {platform_region}")
+    logger.info(f"Regional Routing: {regional_routing}")
     logger.info(f"Total matches: {len(match_ids)}")
     
     # Initialize
@@ -138,7 +139,7 @@ def fetch_matches(match_ids):
     last_logged_percent = -1
     
     for match_idx, match_id in enumerate(match_ids):
-        match = safe_api_call(tft_watcher.match.by_id, region=regional_region, match_id=match_id)
+        match = safe_api_call(tft_watcher.match.by_id, region=regional_routing, match_id=match_id)
         
         current_percent = int((match_idx / total_matches) * 100)
         if current_percent // percent_step > last_logged_percent // percent_step:
@@ -150,7 +151,6 @@ def fetch_matches(match_ids):
         if not match:
             continue
         elif match['info']['queue_id'] != 1100:
-            logger.info(f"Match {match_id} is not a ranked match (QueueID: {match['info']['queue_id']}). Skipping.")
             continue
         
         meta = match['metadata']
@@ -193,20 +193,27 @@ def fetch_matches(match_ids):
 # --- Main function for testing ---
 def main():
     start_total = time.perf_counter()
-
+    
+    # Load config
+    platform = config["riot"]["platform"]
+    regional = config["riot"]["regional"]
+    logger.info(f"Platform: {platform}")
+    logger.info(f"Regional: {regional}")
+    
     logger.info("[TEST] Fetching summoner PUUIDs...")
     start = time.perf_counter()
-    puuids = fetch_summoner_puuids()
+    puuids = fetch_summoner_puuids(platform_routing=platform)
+    puuids = puuids[:50]  # Limit to 50 for testing
     logger.info(f"{len(puuids)} summoners fetched in {time.perf_counter() - start:.2f}s")
 
     logger.info("[TEST] Fetching match IDs...")
     start = time.perf_counter()
-    match_ids = fetch_yesterday_match_ids(puuids)
+    match_ids = fetch_yesterday_match_ids(puuids, regional_routing=regional)
     logger.info(f"{len(match_ids)} matches found in {time.perf_counter() - start:.2f}s")
 
     logger.info("[TEST] Fetching matches data...")
     start = time.perf_counter()
-    participants_df, matches_df = fetch_matches(match_ids)
+    participants_df, matches_df = fetch_matches(match_ids, regional_routing=regional)
     logger.info(f"Match data shape: participants={participants_df.shape}, matches={matches_df.shape} "
           f"in {time.perf_counter() - start:.2f}s")
 

@@ -19,8 +19,8 @@ def load_config(path=None):
 if __name__ == "__main__":
     cfg = load_config()
     print("Riot API Key:", cfg["riot"]["api_key"])
-    print("Platform Region:", cfg["riot"]["platform_region"])
-    print("Regional Routing:", cfg["riot"]["regional_region"])
+    print("Platform Region:", cfg["riot"]["platform"])
+    print("Regional Routing:", cfg["riot"]["regional"])
     print("Database Name:", cfg["DB"]["user"])
     print("Database User:", cfg["DB"]["password"])
     print("Database Password:", cfg["DB"]["database"])
