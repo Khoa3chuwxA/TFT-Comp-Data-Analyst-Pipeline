@@ -3,9 +3,13 @@
 pandas==2.1.4
 numpy==1.26.3
 scikit-learn==1.6.0
+mlxtend==0.21.0
+
+# Visualization
 matplotlib==3.10.1
 seaborn==0.13.2
-mlxtend==0.21.0
+plotly==5.24.1
+dash==3.0.4
 
 # Data & APIs
 pyyaml==6.0.2
@@ -22,3 +26,4 @@ apache-airflow-providers-postgres==4.0.0
 
 # Jupyter & Dev
 jupyter==1.0.0
+jupyter-dash==0.4.2

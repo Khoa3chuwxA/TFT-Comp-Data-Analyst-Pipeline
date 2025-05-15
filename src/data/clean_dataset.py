@@ -48,11 +48,11 @@ def load_and_clean_data(engine, run_date):
         traits_df = participants_df[['match_id', 'puuid', 'traits']].copy()
         # Filling empty traits in player comp
         no_trait = [{
-            'name': 'TFT14_NoneTrait', 'num_units': 0, 
-            'style': 0, 'tier_current': 0, 'tier_total': 0
+            'name': 'TFT_NoneTrait', 'num_units': -1, 
+            'style': -1, 'tier_current': -1, 'tier_total': -1
         }]
         traits_df['traits'] = traits_df['traits'].apply(
-            lambda trait_list: [t for t in trait_list if isinstance(t, dict) and t.get('tier_current', 0) > 0] or no_trait
+            lambda x: x if isinstance(x, list) and len(x) > 0 else no_trait
         )
         # Exploding the traits column to separate rows for each trait
         traits_df = traits_df.explode('traits', ignore_index=True)
@@ -68,8 +68,8 @@ def load_and_clean_data(engine, run_date):
         units_df = participants_df[['match_id', 'puuid', 'units']].copy()
         # Filling emty units in player comp
         no_unit = [{
-            'character_id': 'TFT14_NoneUnit', 'itemNames': [],
-            'name': '', 'rarity': -1, 'tier': 0
+            'character_id': 'TFT_NoneUnit', 'itemNames': [],
+            'name': '', 'rarity': -1, 'tier': -1
         }]
         units_df['units'] = units_df['units'].apply(
             lambda x: x if isinstance(x, list) and len(x) > 0 else no_unit
@@ -88,7 +88,53 @@ def load_and_clean_data(engine, run_date):
         units_df = units_df.drop(columns=['name'], errors='ignore')
         # Rename columns for same naming in SQL table
         units_df.rename(columns={'itemNames': 'items'}, inplace=True)
+        # Remove unit after Viego
+        def remove_unit_after_viego(df):
+            summon_units = {
+                'TFT14_SummonLevel2',    # R-080T: Summoned by Nitro trait units (e.g., Elise, Shyvana). Gains Chrome over rounds.
+                'TFT14_SummonLevel4',    # T-43X: Upgraded form of R-080T when 200 Chrome is accumulated.
+                'TFT14_Summon_Turret',   # Nitro Hex Turret: Summoned from augments related to the Nitro trait.
+                'TFT14_AnnieTibbers'         # Tibbers: Summoned by Annie after every 4 casts of her ability
+            }
 
+            viego_rows = df[df['character_id'] == 'TFT14_Viego'].sort_values('slot_idx')
+            if viego_rows.empty:
+                return df.copy()
+
+            last_viego = viego_rows.iloc[-1]
+            last_viego_slot = last_viego['slot_idx']
+            idx = last_viego_slot + 1
+            unit_removed = False
+
+            while True:
+                next_unit = df[df['slot_idx'] == idx]
+                if next_unit.empty:
+                    break
+                next_char = next_unit.iloc[0]['character_id']
+                if next_char in summon_units:
+                    idx += 1
+                    continue
+                else:
+                    df = df.drop(index=next_unit.index[0])
+                    unit_removed = True
+                    break
+
+            # Only check if there are 2 Viego or more and did not removed any unit
+            if len(viego_rows) >= 2 and not unit_removed:
+                viego_items = last_viego.get('items', [])
+                if isinstance(viego_items, list) and len(viego_items) == 1:
+                    df = df.drop(index=last_viego.name)
+
+            df = df.sort_values('slot_idx').reset_index(drop=True)
+            df['slot_idx'] = df.index
+            return df
+        units_df = (
+            units_df.sort_values(['match_id', 'puuid', 'slot_idx'])
+            .groupby(['match_id', 'puuid'], group_keys=False)
+            .apply(remove_unit_after_viego)
+            .reset_index(drop=True)
+        )
+        
         # --- Matches ---
         matches_df = matches_df[['match_id', 'game_datetime', 
                                  'game_length', 'game_version', 'tft_set_number']].copy()
