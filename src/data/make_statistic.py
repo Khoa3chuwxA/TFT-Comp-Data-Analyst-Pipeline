@@ -289,15 +289,23 @@ def deduplicate_comps(frequent_comps_df):
             })
     return pd.DataFrame(result)
 # Find active traits of a combination of units
-def load_combine_units_traits(combine_units, unit_traits_info, traits_info):
+def load_combine_units_traits(combine_units, unit_traits_info, traits_info, trait_bonus=None):
     trait_counter = {}
+    trait_bonus = trait_bonus or []
+    
+    # Count trait appearances across units
     for unit in combine_units:
         unit = '_'.join(unit.split('_')[:2])
         unit_info = unit_traits_info.get(unit)
         traits = unit_info.get('traits', [])
         for trait in traits:
             trait_counter[trait] = trait_counter.get(trait, 0) + 1
+            
+    # Add bonus counts for specific traits
+    for bonus_trait in trait_bonus:
+        trait_counter[bonus_trait] = trait_counter.get(bonus_trait, 0) + 1
     
+    # Remove traits that don’t meet tier requirements
     traits_to_remove = []
     for trait, count in trait_counter.items():
         trait_info = traits_info.get(trait)
@@ -310,7 +318,12 @@ def load_combine_units_traits(combine_units, unit_traits_info, traits_info):
     for trait in traits_to_remove:
         del trait_counter[trait]
             
-    return trait_counter
+    sorted_trait_counter = dict(sorted(
+        trait_counter.items(),
+        key=lambda item: (-item[1], item[0])
+    ))
+
+    return sorted_trait_counter
 # Find the most common compositions from level to level 9 of a given composition
 def find_most_common_comps_by_level(comps_df, comp, level):
     base_comp = set(comp)
@@ -852,11 +865,14 @@ def build_items_statistic_df(participants_df, units_df):
     rows = []
     for (game_version, item), group in unit_stats.groupby(['game_version', 'items']):
         group_sorted = group.sort_values(by='frequency', ascending=False).head(10)
-        top_units = [
-            {'character_id': row['character_id'], 'frequency': round(row['frequency'], 3),
-             'avg_place': round(row['avg_place'], 2), 
-             'item_avg_delta': round(row['item_avg_delta'], 2), 'unit_avg_delta': round(row['unit_avg_delta'], 2),
-             'win': round(row['win'], 3), 'top4': round(row['top4'], 3)}
+        top_units = [{
+            'character_id': row['character_id'], 
+            'frequency': round(row['frequency'], 3),
+            'avg_place': round(row['avg_place'], 2), 
+            'item_avg_delta': round(row['item_avg_delta'], 2), 
+            'unit_avg_delta': round(row['unit_avg_delta'], 2),
+            'win': round(row['win'], 3), 'top4': round(row['top4'], 3)
+            }
             for _, row in group_sorted.iterrows()
         ]
         rows.append({
@@ -1227,6 +1243,7 @@ def build_comps_statistic_df(comps_df, freq_df, unit_traits_info, traits_info):
             combine_units_by_level = find_most_common_comps_by_level(comps_df, itemset, level=row['level'])
 
             play_rate = round(play_count / total_matches[version], 2)
+            avg_place = round(avg_place, 2)
             win_rate = round(win / play_count, 3)
             top4_rate = round(top4 / play_count, 3)
 
